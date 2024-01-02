@@ -63,6 +63,7 @@ const ContentState = (props) => {
     hasBeenEdited: false,
     dragInteracted: false,
     noffmpeg: false,
+    openModal: null,
   };
 
   const [contentState, setContentState] = useState(defaultState);
@@ -141,25 +142,6 @@ const ContentState = (props) => {
       }));
     }
   }, [contentState]);
-
-  /*
-  function base64ToUint8Array(base64) {
-    const dataURLRegex = /^data:.+;base64,/;
-    if (dataURLRegex.test(base64)) {
-      base64 = base64.replace(dataURLRegex, "");
-    }
-
-    const binary_string = window.atob(base64);
-    const len = binary_string.length;
-    const bytes = new Uint8Array(len);
-
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary_string.charCodeAt(i);
-    }
-
-    return bytes;
-  }
-	*/
 
   const base64ToUint8Array = (base64) => {
     const dataUrlRegex = /^data:(.*?);base64,/;
@@ -260,6 +242,14 @@ const ContentState = (props) => {
         driveEnabled: true,
         saved: true,
       }));
+    } else if (message.type === "restore-recording") {
+      // Restore recording
+      const chunks = message.blob;
+      chunks.forEach((chunk) => {
+        const chunkData = base64ToUint8Array(chunk.chunk);
+        videoChunks.current.push(chunkData);
+      });
+      reconstructVideo();
     }
   });
 
