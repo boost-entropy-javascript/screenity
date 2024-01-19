@@ -84,7 +84,9 @@ const Wrapper = () => {
     <div ref={parentRef}>
       <iframe
         style={{
+          // all: "unset",
           display: "none",
+          visibility: "hidden",
         }}
         ref={permissionsRef}
         src={chrome.runtime.getURL("permissions.html")}
@@ -92,7 +94,9 @@ const Wrapper = () => {
       ></iframe>
       <iframe
         style={{
+          // all: "unset",
           display: "none",
+          visibility: "hidden",
         }}
         ref={regionCaptureRef}
         src={chrome.runtime.getURL("region.html")}
@@ -107,6 +111,7 @@ const Wrapper = () => {
             !contentState.blurMode && (
               <div
                 style={{
+                  // all: "unset",
                   width: "100%",
                   height: "100%",
                   zIndex: 999999999,
@@ -151,7 +156,7 @@ const Wrapper = () => {
             className="root-container"
             id="screenity-root-container"
             style={{
-              all: "initial",
+              // all: "initial",
               display: "block",
               width: "100%",
               height: "100%",
