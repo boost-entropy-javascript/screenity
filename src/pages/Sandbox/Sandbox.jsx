@@ -135,23 +135,24 @@ const Sandbox = () => {
                   contentState.openModal(
                     chrome.i18n.getMessage("havingIssuesModalTitle"),
                     chrome.i18n.getMessage("havingIssuesModalDescription"),
-                    chrome.i18n.getMessage("havingIssuesModalButton"),
+                    chrome.i18n.getMessage("restoreRecording"),
                     chrome.i18n.getMessage("havingIssuesModalButton2"),
                     () => {
-                      chrome.runtime.sendMessage(
-                        {
-                          type: "check-restore",
-                        },
-                        (response) => {
-                          if (response.restore) {
-                            chrome.runtime.sendMessage({
-                              type: "indexed-db-download",
-                            });
-                          } else {
-                            alert(chrome.i18n.getMessage("noRecordingFound"));
-                          }
-                        }
-                      );
+                      chrome.runtime.sendMessage({ type: "restore-recording" });
+                      // chrome.runtime.sendMessage(
+                      //   {
+                      //     type: "check-restore",
+                      //   },
+                      //   (response) => {
+                      //     if (response.restore) {
+                      //       chrome.runtime.sendMessage({
+                      //         type: "indexed-db-download",
+                      //       });
+                      //     } else {
+                      //       alert(chrome.i18n.getMessage("noRecordingFound"));
+                      //     }
+                      //   }
+                      // );
                     },
                     () => {
                       chrome.runtime.sendMessage({ type: "report-bug" });

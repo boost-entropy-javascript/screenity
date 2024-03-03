@@ -53,37 +53,28 @@ const resetActiveTab = async () => {
   chrome.tabs.get(activeTab, (tab) => {
     if (tab) {
       // Focus the window
-      chrome.windows.update(tab.windowId, { focused: true }, () => {
+      chrome.windows.update(tab.windowId, { focused: true }, async () => {
         chrome.tabs.update(activeTab, {
           active: true,
           selected: true,
           highlighted: true,
         });
-        chrome.tabs.create(
-          {
-            url: editor_url,
-            index: 1,
-            pinned: true,
-            active: false,
-          },
-          async (tab) => {
-            focusTab(activeTab);
-            chrome.storage.local.set({ sandboxTab: tab.id });
-            sendMessageTab(activeTab, { type: "ready-to-record" });
 
-            // Check if countdown is set, if so start recording after 3 seconds
-            const { countdown } = await chrome.storage.local.get(["countdown"]);
-            if (countdown) {
-              setTimeout(() => {
-                startAfterCountdown();
-              }, 3500);
-            } else {
-              setTimeout(() => {
-                startAfterCountdown();
-              }, 500);
-            }
-          }
-        );
+        focusTab(activeTab);
+
+        sendMessageTab(activeTab, { type: "ready-to-record" });
+
+        // Check if countdown is set, if so start recording after 3 seconds
+        const { countdown } = await chrome.storage.local.get(["countdown"]);
+        if (countdown) {
+          setTimeout(() => {
+            startAfterCountdown();
+          }, 3500);
+        } else {
+          setTimeout(() => {
+            startAfterCountdown();
+          }, 500);
+        }
       });
     }
   });
@@ -475,7 +466,6 @@ const stopRecording = async () => {
   });
 
   chrome.storage.local.set({ recordingStartTime: 0 });
-  const { sandboxTab } = await chrome.storage.local.get(["sandboxTab"]);
 
   if (duration > maxDuration) {
     // Close the sandbox tab, open a new one with fallback editor
@@ -492,8 +482,6 @@ const stopRecording = async () => {
         ) {
           if (tabId === tab.id && changeInfo.status === "complete") {
             chrome.tabs.onUpdated.removeListener(_);
-            // Close the existing sandbox tab
-            removeTab(sandboxTab);
             chrome.storage.local.set({ sandboxTab: tab.id });
             sendChunks();
           }
@@ -501,15 +489,26 @@ const stopRecording = async () => {
       }
     );
   } else {
-    // Move the tab to the last position
-    chrome.tabs.get(sandboxTab, (tab) => {
-      chrome.windows.update(tab.windowId, { focused: true }).then(() => {
-        chrome.tabs.update(sandboxTab, { active: true, pinned: false });
-        chrome.tabs.move(sandboxTab, { index: -1 });
-      });
-    });
-
-    sendChunks();
+    // Close the sandbox tab, open a new one with normal editor
+    chrome.tabs.create(
+      {
+        url: "editor.html",
+        active: true,
+      },
+      (tab) => {
+        chrome.tabs.onUpdated.addListener(function _(
+          tabId,
+          changeInfo,
+          updatedTab
+        ) {
+          if (tabId === tab.id && changeInfo.status === "complete") {
+            chrome.tabs.onUpdated.removeListener(_);
+            chrome.storage.local.set({ sandboxTab: tab.id });
+            sendChunks();
+          }
+        });
+      }
+    );
   }
 
   chrome.action.setIcon({ path: "assets/icon-34.png" });
@@ -655,10 +654,6 @@ const getStreamingData = async () => {
 const handleDismiss = async () => {
   chrome.storage.local.set({ restarting: true });
   const { region } = await chrome.storage.local.get(["region"]);
-  if (!region) {
-    const { sandboxTab } = await chrome.storage.local.get(["sandboxTab"]);
-    removeTab(sandboxTab);
-  }
   // Check if wasRegion is set
   const { wasRegion } = await chrome.storage.local.get(["wasRegion"]);
   if (wasRegion) {
@@ -678,25 +673,8 @@ const handleRestart = async () => {
       editor_url = "editorfallback.html";
     }
   }
-  const { sandboxTab } = await chrome.storage.local.get(["sandboxTab"]);
-  removeTab(sandboxTab);
-  chrome.tabs.create(
-    {
-      url: editor_url,
-      index: 1,
-      pinned: true,
-      active: false,
-    },
-    (tab) => {
-      chrome.storage.local.set({ sandboxTab: tab.id });
-      chrome.tabs.onUpdated.addListener(function _(tabId, changeInfo, tab) {
-        if (tabId === tab.id && changeInfo.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(_);
-          resetActiveTabRestart();
-        }
-      });
-    }
-  );
+
+  resetActiveTabRestart();
 };
 
 const sendMessageRecord = async (message) => {
@@ -1114,11 +1092,10 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 
   if (region) return;
   const { recordingTab } = await chrome.storage.local.get(["recordingTab"]);
-  const { sandboxTab } = await chrome.storage.local.get(["sandboxTab"]);
   const { recording } = await chrome.storage.local.get(["recording"]);
   const { restarting } = await chrome.storage.local.get(["restarting"]);
 
-  if ((tabId === recordingTab || tabId === sandboxTab) && !restarting) {
+  if (tabId === recordingTab && !restarting) {
     chrome.storage.local.set({ recordingTab: null });
     // Send a message to active tab
     const { activeTab } = await chrome.storage.local.get(["activeTab"]);
@@ -1140,17 +1117,9 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
     // Update icon
     chrome.action.setIcon({ path: "assets/icon-34.png" });
   }
-  if (tabId === sandboxTab && !restarting) {
-    removeTab(recordingTab);
-  } else if (tabId === recordingTab && recording) {
-    removeTab(sandboxTab);
-  }
 });
 
 const discardRecording = async () => {
-  const { sandboxTab } = await chrome.storage.local.get(["sandboxTab"]);
-  // Get actual sandbox tab
-  removeTab(sandboxTab);
   sendMessageRecord({ type: "dismiss-recording" });
   chrome.action.setIcon({ path: "assets/icon-34.png" });
   discardOffscreenDocuments();
@@ -1187,43 +1156,8 @@ const checkRecording = async () => {
   }
 };
 
-const removeSandbox = async () => {
-  const { sandboxTab } = await chrome.storage.local.get(["sandboxTab"]);
-  removeTab(sandboxTab);
-};
-
 const newSandboxPageRestart = async () => {
-  let editor_url = "editor.html";
-
-  // Check if Chrome version is 109 or below
-  if (navigator.userAgent.includes("Chrome/")) {
-    const version = parseInt(navigator.userAgent.match(/Chrome\/([0-9]+)/)[1]);
-    if (version <= 109) {
-      editor_url = "editorfallback.html";
-    }
-  }
-  chrome.tabs.create(
-    {
-      url: editor_url,
-      index: 1,
-      pinned: true,
-      active: false,
-    },
-    (tab) => {
-      chrome.storage.local.set({ sandboxTab: tab.id });
-
-      chrome.tabs.onUpdated.addListener(function _(
-        tabId,
-        changeInfo,
-        updatedTab
-      ) {
-        if (tabId === tab.id && changeInfo.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(_);
-          resetActiveTabRestart();
-        }
-      });
-    }
-  );
+  resetActiveTabRestart();
 };
 
 const isPinned = (sendResponse) => {
@@ -1494,7 +1428,7 @@ const handleStopRecordingTab = async (request) => {
 };
 
 const handleRestartRecordingTab = async () => {
-  removeSandbox();
+  //removeSandbox();
 };
 
 const handleDismissRecordingTab = async () => {
