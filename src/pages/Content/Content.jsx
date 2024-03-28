@@ -125,7 +125,7 @@ const Content = () => {
   }
 }
 
-[data-radix-popper-content-wrapper] { z-index: 999999999999!important; } 
+#screenity-ui [data-radix-popper-content-wrapper] { z-index: 999999999999!important; } 
 
 .screenity-shadow-dom .CanvasContainer {
 	position: fixed;
@@ -150,6 +150,7 @@ const Content = () => {
 }
 
 .ScreenityDropdownMenuContent {
+	z-index: 99999999999!important;
   min-width: 200px;
   background-color: white;
   margin-top: 4px;
